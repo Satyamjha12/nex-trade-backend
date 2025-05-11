@@ -1,9 +1,12 @@
 import dotenv from 'dotenv';
 dotenv.config();
-import express from "express"
-import mongoose  from 'mongoose';
+import express from "express";
+import mongoose from 'mongoose';
 import bodyParser from 'body-parser';
-import cors from "cors"
+import cors from "cors";
+import { Server } from "socket.io";
+import http from "http";
+import axios from "axios";
 
 import { HoldingsModel } from './model/HoldingsModel.js';
 import { PositionsModel } from './model/PositionsModel.js';
@@ -11,221 +14,158 @@ import { OrdersModel } from './model/OrdersModel.js';
 
 import userRouter from './routes/userRoute.js';
 
-
 const PORT = process.env.PORT || 3002;
 const url = process.env.MONGO_URL;
-
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
 const app = express();
+const server = http.createServer(app); // Create HTTP server
+const io = new Server(server, {
+  cors: {
+    origin: "*", // Allow all origins
+  },
+});
+
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.json())
+app.use(express.json());
 
+// Existing routes
+app.use("/api/user", userRouter);
 
-// app.get('/addHoldings', async(req, res)=>{
-//     let tempHoldings =[
-//         {
-//           name: "BHARTIARTL",
-//           qty: 2,
-//           avg: 538.05,
-//           price: 541.15,
-//           net: "+0.58%",
-//           day: "+2.99%",
-//         },
-//         {
-//           name: "HDFCBANK",
-//           qty: 2,
-//           avg: 1383.4,
-//           price: 1522.35,
-//           net: "+10.04%",
-//           day: "+0.11%",
-//         },
-//         {
-//           name: "HINDUNILVR",
-//           qty: 1,
-//           avg: 2335.85,
-//           price: 2417.4,
-//           net: "+3.49%",
-//           day: "+0.21%",
-//         },
-//         {
-//           name: "INFY",
-//           qty: 1,
-//           avg: 1350.5,
-//           price: 1555.45,
-//           net: "+15.18%",
-//           day: "-1.60%",
-//           isLoss: true,
-//         },
-//         {
-//           name: "ITC",
-//           qty: 5,
-//           avg: 202.0,
-//           price: 207.9,
-//           net: "+2.92%",
-//           day: "+0.80%",
-//         },
-//         {
-//           name: "KPITTECH",
-//           qty: 5,
-//           avg: 250.3,
-//           price: 266.45,
-//           net: "+6.45%",
-//           day: "+3.54%",
-//         },
-//         {
-//           name: "M&M",
-//           qty: 2,
-//           avg: 809.9,
-//           price: 779.8,
-//           net: "-3.72%",
-//           day: "-0.01%",
-//           isLoss: true,
-//         },
-//         {
-//           name: "RELIANCE",
-//           qty: 1,
-//           avg: 2193.7,
-//           price: 2112.4,
-//           net: "-3.71%",
-//           day: "+1.44%",
-//         },
-//         {
-//           name: "SBIN",
-//           qty: 4,
-//           avg: 324.35,
-//           price: 430.2,
-//           net: "+32.63%",
-//           day: "-0.34%",
-//           isLoss: true,
-//         },
-//         {
-//           name: "SGBMAY29",
-//           qty: 2,
-//           avg: 4727.0,
-//           price: 4719.0,
-//           net: "-0.17%",
-//           day: "+0.15%",
-//         },
-//         {
-//           name: "TATAPOWER",
-//           qty: 5,
-//           avg: 104.2,
-//           price: 124.15,
-//           net: "+19.15%",
-//           day: "-0.24%",
-//           isLoss: true,
-//         },
-//         {
-//           name: "TCS",
-//           qty: 1,
-//           avg: 3041.7,
-//           price: 3194.8,
-//           net: "+5.03%",
-//           day: "-0.25%",
-//           isLoss: true,
-//         },
-//         {
-//           name: "WIPRO",
-//           qty: 4,
-//           avg: 489.3,
-//           price: 577.75,
-//           net: "+18.08%",
-//           day: "+0.32%",
-//         },
-//       ];
-
-//       tempHoldings.forEach((item)=>{
-//         let newHolding = new HoldingsModel({
-//             name: item.name,
-//             qty: item.qty,
-//             avg: item.avg,
-//             price: item.price,
-//             net: item.net,
-//             day: item.day,
-//         });
-
-//         newHolding.save();
-//       });
-//       res.send("Done!");
-// });
-
-// app.get("/addPositions", async (req, res) => {
-//       let tempPositions = [
-//         {
-//           product: "CNC",
-//           name: "EVEREADY",
-//           qty: 2,
-//           avg: 316.27,
-//           price: 312.35,
-//           net: "+0.58%",
-//           day: "-1.24%",
-//           isLoss: true,
-//         },
-//         {
-//           product: "CNC",
-//           name: "JUBLFOOD",
-//           qty: 1,
-//           avg: 3124.75,
-//           price: 3082.65,
-//           net: "+10.04%",
-//           day: "-1.35%",
-//           isLoss: true,
-//         },
-//       ];
-    
-//       tempPositions.forEach((item) => {
-//         let newPosition = new PositionsModel({
-//           product: item.product,
-//           name: item.name,
-//           qty: item.qty,
-//           avg: item.avg,
-//           price: item.price,
-//           net: item.net,
-//           day: item.day,
-//           isLoss: item.isLoss,
-//         });
-    
-//         newPosition.save();
-//       });
-//       res.send("Done!");
-//     });
-
-app.use("/api/user",userRouter)
-
-app.get('/allHoldings', async(req, res)=>{
-    let allHoldings = await HoldingsModel.find({});
-
+app.get('/allHoldings', async (req, res) => {
+  try {
+    const allHoldings = await HoldingsModel.find({});
     res.json(allHoldings);
+  } catch (error) {
+    console.error("Error fetching holdings:", error.message);
+    res.status(500).json({ error: "Failed to fetch holdings" });
+  }
 });
 
-app.get('/allPositions', async(req, res)=>{
-    let allPositions = await PositionsModel.find({});
-
+app.get('/allPositions', async (req, res) => {
+  try {
+    const allPositions = await PositionsModel.find({});
     res.json(allPositions);
+  } catch (error) {
+    console.error("Error fetching positions:", error.message);
+    res.status(500).json({ error: "Failed to fetch positions" });
+  }
 });
 
-app.post('/newOrder', async(req, res)=>{
-    let newOrder = new OrdersModel({
-        name: req.body.name,
-        qty: req.body.qty,
-        price: req.body.price,
-        mode: req.body.mode,
+app.post('/newOrder', async (req, res) => {
+  try {
+    const newOrder = new OrdersModel({
+      name: req.body.name,
+      qty: req.body.qty,
+      price: req.body.price,
+      mode: req.body.mode,
     });
 
-    newOrder.save();
-
+    await newOrder.save();
     res.send("Order Saved!");
+  } catch (error) {
+    console.error("Error saving order:", error.message);
+    res.status(500).json({ error: "Failed to save order" });
+  }
 });
 
 app.get('/allOrders', async (req, res) => {
-    let allOrders = await OrdersModel.find({});
+  try {
+    const allOrders = await OrdersModel.find({});
     res.json(allOrders);
+  } catch (error) {
+    console.error("Error fetching orders:", error.message);
+    res.status(500).json({ error: "Failed to fetch orders" });
+  }
 });
 
+// New route to fetch historical data for candlestick chart
+app.get("/api/stock/:symbol/history", async (req, res) => {
+  const { symbol } = req.params;
 
-app.listen(PORT, ()=>{
-    console.log(`App Started on port ${PORT}`)
-    mongoose.connect(url);
-    console.log("DB connected")
-})
+  if (!FINNHUB_API_KEY) {
+    return res.status(500).json({ error: "FINNHUB_API_KEY is not set" });
+  }
+
+  try {
+    const response = await axios.get(
+      `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=1&from=${Math.floor(
+        Date.now() / 1000 - 3600 * 24
+      )}&to=${Math.floor(Date.now() / 1000)}&token=${FINNHUB_API_KEY}`
+    );
+
+    res.json(response.data);
+  } catch (error) {
+    console.error("Error fetching historical data:", error.message);
+    res.status(500).json({ error: "Failed to fetch historical data" });
+  }
+});
+
+// WebSocket for real-time updates
+let connectedClients = 0; // Track the number of connected clients
+
+io.on("connection", (socket) => {
+  connectedClients++;
+  console.log(`Client connected: ${socket.id}, Total clients: ${connectedClients}`);
+
+  socket.on("disconnect", () => {
+    connectedClients--;
+    console.log(`Client disconnected: ${socket.id}, Total clients: ${connectedClients}`);
+  });
+});
+
+// Fetch real-time data once and broadcast to all clients
+const fetchRealTimeData = async () => {
+  if (!FINNHUB_API_KEY) {
+    console.error("FINNHUB_API_KEY is not set. Skipping real-time data fetch.");
+    return;
+  }
+
+  try {
+    const symbols = ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN"]; // Example symbols
+    const responses = await Promise.all(
+      symbols.map((symbol) =>
+        axios.get(
+          `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`
+        )
+      )
+    );
+
+    const stocks = responses.map((response, index) => ({
+      name: symbols[index],
+      price: response.data.c, // Current price
+      change: response.data.d, // Change in price
+      percentChange: `${response.data.dp.toFixed(2)}%`, // Percentage change
+      high: response.data.h, // High price of the day
+      low: response.data.l, // Low price of the day
+      open: response.data.o, // Open price of the day
+      previousClose: response.data.pc, // Previous close price
+      isDown: response.data.d < 0, // Determine if the price is down
+    }));
+
+    // Broadcast data to all connected clients
+    io.emit("realTimeUpdates", { watchlist: stocks });
+    console.log("Real-time data broadcasted:", stocks);
+  } catch (error) {
+    if (error.response && error.response.status === 429) {
+      console.error("Rate limit exceeded. Skipping this fetch cycle.");
+    } else {
+      console.error("Error fetching real-time data:", error.message);
+    }
+  }
+};
+
+// Fetch data every 10 seconds (to stay within rate limits)
+setInterval(fetchRealTimeData, 10000);
+
+// Start the server
+server.listen(PORT, async () => {
+  console.log(`App Started on port ${PORT}`);
+  try {
+    await mongoose.connect(url);
+    console.log("DB connected");
+  } catch (error) {
+    console.error("MongoDB connection failed:", error.message);
+  }
+});
